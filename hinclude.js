@@ -31,12 +31,18 @@ See http://mnot.github.com/hinclude/ for documentation.
 
 var hinclude;
 
-(function () {
+(function ($) {
 
   "use strict";
 
   hinclude = {
     classprefix: "include_",
+
+    dispatchCallbackEvent: function (element, req) {
+      if (element.getAttribute('callback') != "") {
+        $("body").trigger("hinclude." + element.getAttribute('callback'), [element, req]);
+      }
+    },
 
     set_content_async: function (element, req) {
       if (req.readyState === 4) {
@@ -44,6 +50,8 @@ var hinclude;
           element.innerHTML = req.responseText;
         }
         element.className = hinclude.classprefix + req.status;
+
+        this.dispatchCallbackEvent(element, req);
       }
     },
 
@@ -65,6 +73,9 @@ var hinclude;
           include[0].innerHTML = include[1].responseText;
         }
         include[0].className = hinclude.classprefix + include[1].status;
+
+        this.dispatchCallbackEvent(include[0], include[1]);
+
       }
     },
 
@@ -219,5 +230,5 @@ var hinclude;
   };
 
   hinclude.addDOMLoadEvent(function () { hinclude.run(); });
-}());
+}(jQuery));
 
