@@ -77,12 +77,13 @@ var hinclude;
                 if (include[1].status === 200 || include[1].status === 304) {
                     include[0].innerHTML = include[1].responseText;
                 }
+
                 include[0].className = hinclude.classprefix + include[1].status;
 
-                this.dispatchCallbackEvent(include[0], include[1]);
+                hinclude.dispatchCallbackEvent(include[0], include[1]);
 
-                if (hinclude.buffer.length == 0) {
-                    this.dispatchEvent('show_all_buffered_content');
+                if (hinclude.buffer.length == 0 && hinclude.outstanding == 0) {
+                    hinclude.dispatchEvent('show_all_buffered_content');
                 }
             }
         },
