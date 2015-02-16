@@ -50,24 +50,20 @@ var hinclude;
         },
 
         set_content_async: function (element, req) {
-            if (req.readyState === 4) {
-                if (req.status === 200 || req.status === 304) {
-                    element.innerHTML = req.responseText;
-                }
-                element.className = hinclude.classprefix + req.status;
-
-                this.dispatchCallbackEvent(element, req);
+            if (req.status === 200 || req.status === 304) {
+                element.innerHTML = req.responseText;
             }
+            element.className = hinclude.classprefix + req.status;
+
+            hinclude.dispatchCallbackEvent(element, req);
         },
 
         buffer: [],
         set_content_buffered: function (element, req) {
-            if (req.readyState === 4) {
-                hinclude.buffer.push([element, req]);
-                hinclude.outstanding -= 1;
-                if (hinclude.outstanding === 0) {
-                    hinclude.show_buffered_content();
-                }
+            hinclude.buffer.push([element, req]);
+            hinclude.outstanding -= 1;
+            if (hinclude.outstanding === 0) {
+                hinclude.show_buffered_content();
             }
         },
 
@@ -89,27 +85,70 @@ var hinclude;
         },
 
         outstanding: 0,
+        include_mode: "",
         includes: [],
         run: function () {
             var i = 0;
-            var mode = this.get_meta("include_mode", "buffered");
+            hinclude.include_mode = this.get_meta("include_mode", "buffered");
             var callback = function (element, req) {
             };
             this.includes = document.getElementsByTagName("hx:include");
             if (this.includes.length === 0) { // remove ns for IE
                 this.includes = document.getElementsByTagName("include");
             }
-            if (mode === "async") {
+            if (hinclude.include_mode === "async") {
                 callback = this.set_content_async;
-            } else if (mode === "buffered") {
+            } else if (hinclude.include_mode === "buffered") {
                 callback = this.set_content_buffered;
                 var timeout = this.get_meta("include_timeout", 2.5) * 1000;
                 setTimeout(hinclude.show_buffered_content, timeout);
             }
 
             for (i; i < this.includes.length; i += 1) {
-                this.include(this.includes[i], this.includes[i].getAttribute("src"), this.includes[i].getAttribute("media"), callback);
+                this.processElement(this.includes[i], callback);
             }
+        },
+
+        processElement: function (element, callback) {
+            var refresh = element.getAttribute("refresh")
+
+            if (refresh > 0) {
+                this.autoRefresh(element, refresh * 1000, callback);
+            } else {
+                this.includeElement(element, callback);
+            }
+        },
+
+        now : function() {
+            return (new Date()).getTime();
+        },
+
+        autoRefresh:function(element, timeout, callBack) {
+            var h = this;
+
+            var start = this.now();
+
+            this.includeElement(element, function(el, req){
+
+                callBack(el, req);
+
+                if(hinclude.include_mode == 'buffered') {
+                    hinclude.show_buffered_content();
+                }
+
+                var delay = timeout - (h.now() - start);
+
+                if(delay < 1 ) {
+                    h.autoRefresh(element, timeout, callBack);
+                }else{
+                    setTimeout(function(){h.autoRefresh(element, timeout, callBack);}, delay);
+                }
+
+            });
+        },
+
+        includeElement: function(element, callBack){
+            this.include(element, element.getAttribute("src"), element.getAttribute("media"), callBack);
         },
 
         include: function (element, url, media, incl_cb) {
@@ -138,7 +177,9 @@ var hinclude;
                 if (req) {
                     this.outstanding += 1;
                     req.onreadystatechange = function () {
-                        incl_cb(element, req);
+                        if (req.readyState === 4) {
+                            incl_cb(element, req);
+                        }
                     };
                     try {
                         req.open("GET", url, true);
@@ -154,9 +195,7 @@ var hinclude;
         refresh: function (element_id) {
             var i = 0;
             var mode = this.get_meta("include_mode", "buffered");
-            var callback = function (element, req) {
-            };
-            callback = this.set_content_buffered;
+            var callback = this.set_content_buffered;
             for (i; i < this.includes.length; i += 1) {
                 if (this.includes[i].getAttribute("id") === element_id) {
                     this.include(this.includes[i], this.includes[i].getAttribute("src"), callback);
